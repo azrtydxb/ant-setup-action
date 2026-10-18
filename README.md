@@ -33,7 +33,7 @@ unless `required: "true"`.
 
 Run it in every job that needs it, after `actions/checkout` and inside the job's
 `container:` if it has one (files go to that container's `$HOME`). The image needs
-`curl` or `wget`.
+`curl`, `wget`, `node` (18+) or `python3`.
 
 ## Ant side (OKE instance)
 

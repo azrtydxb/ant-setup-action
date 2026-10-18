@@ -1,6 +1,6 @@
 #!/bin/sh
 # Kuvryn Ant setup: GitHub OIDC -> Ant token -> tool configuration.
-# POSIX sh; needs curl or wget. Never prints the token.
+# POSIX sh; needs curl, wget, node (18+) or python3. Never prints the token.
 set -u
 
 fallback() {
@@ -26,6 +26,21 @@ fetch() { # fetch URL [auth-header] [post-body]
 		else
 			wget -q -T 30 -O - --header "$2" "$1"
 		fi
+	elif command -v node >/dev/null 2>&1; then
+		ANT_U="$1" ANT_H="$2" ANT_B="${3:-}" node -e '
+const [k, ...v] = process.env.ANT_H.split(":");
+const h = { [k]: v.join(":").trim(), "Content-Type": "application/json" };
+const b = process.env.ANT_B;
+fetch(process.env.ANT_U, b ? { method: "POST", headers: h, body: b } : { headers: h })
+  .then(async (r) => { if (!r.ok) process.exit(22); process.stdout.write(await r.text()); })
+  .catch(() => process.exit(7));'
+	elif command -v python3 >/dev/null 2>&1; then
+		ANT_U="$1" ANT_H="$2" ANT_B="${3:-}" python3 -I -c '
+import os, sys, urllib.request
+k, _, v = os.environ["ANT_H"].partition(":")
+b = os.environ["ANT_B"].encode() or None
+r = urllib.request.Request(os.environ["ANT_U"], data=b, headers={k: v.strip(), "Content-Type": "application/json"})
+sys.stdout.write(urllib.request.urlopen(r, timeout=30).read().decode())'
 	else
 		return 127
 	fi
