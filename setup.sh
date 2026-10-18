@@ -67,6 +67,9 @@ if [ "${ANT_GO:-true}" = "true" ]; then
 	{
 		echo "NETRC=$netrc"
 		echo "GOPROXY=$base/feeds/${ANT_GO_FEED:-go}/go,direct"
+		# Checksums straight from sum.golang.org: Ant's sumdb proxy answers
+		# /supported but 404s some /lookup requests, which go treats as fatal.
+		[ -n "${GOSUMDB:-}" ] || echo "GOSUMDB=sum.golang.org https://sum.golang.org"
 	} >>"$GITHUB_ENV"
 	echo "Kuvryn Ant: GOPROXY=$base/feeds/${ANT_GO_FEED:-go}/go,direct"
 fi
