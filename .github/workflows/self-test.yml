@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./
-        with: { required: "true" }
+        with: { required: "true", npm: "true" }
       - run: |
           npm config get registry
           cd "$(mktemp -d)" && npm init -y >/dev/null && npm install left-pad@1.3.0 && echo npm-ok
@@ -72,5 +72,5 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./
-        with: { required: "true" }
+        with: { required: "true", npm: "true" }
       - run: cd "$(mktemp -d)" && npm init -y >/dev/null && npm install left-pad@1.3.0 && echo slim-npm-ok
