@@ -55,4 +55,4 @@ runs:
         ANT_NPM_FEED: ${{ inputs.npm-feed }}
         ANT_CARGO_FEED: ${{ inputs.cargo-feed }}
         ANT_PYPI_FEED: ${{ inputs.pypi-feed }}
-      run: sh "${{ github.action_path }}/setup.sh"
+      run: sh "$GITHUB_ACTION_PATH/setup.sh"
