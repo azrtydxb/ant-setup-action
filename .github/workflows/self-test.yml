@@ -1,0 +1,68 @@
+name: self-test
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  go:
+    runs-on: arc-azrtydxb
+    container: golang:1.27-bookworm
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with: { required: "true" }
+      - run: |
+          go env GOPROXY
+          cd "$(mktemp -d)" && go mod init t && go get github.com/pkg/errors@v0.9.1 && echo go-ok
+  npm:
+    runs-on: arc-azrtydxb
+    container: node:22-bookworm
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with: { required: "true" }
+      - run: |
+          npm config get registry
+          cd "$(mktemp -d)" && npm init -y >/dev/null && npm install left-pad@1.3.0 && echo npm-ok
+          npm install -g pnpm@9 >/dev/null && pnpm add is-number@7.0.0 && echo pnpm-ok
+  cargo:
+    runs-on: arc-azrtydxb
+    container: rust:1-bookworm
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with: { required: "true" }
+      - run: |
+          cd "$(mktemp -d)" && cargo new -q t && cd t && cargo add -q itoa@1.0.11 && cargo fetch && echo cargo-ok
+  pip:
+    runs-on: arc-azrtydxb
+    container: python:3.13-bookworm
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with: { required: "true" }
+      - run: |
+          python -m pip download --no-deps -d "$(mktemp -d)" six==1.16.0 && echo pip-ok
+  docker:
+    runs-on: arc-azrtydxb
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with:
+          {
+            required: "true",
+            docker-login: "true",
+            go: "false",
+            npm: "false",
+            cargo: "false",
+            pip: "false",
+          }
+      - name: Push a tiny image to oci-hosted (main gets publish)
+        run: |
+          printf 'FROM busybox:1.37\nLABEL org.opencontainers.image.source=https://github.com/azrtydxb/ant-setup-action\n' > Dockerfile.selftest
+          tag="$ANT_HOST/oci-hosted/azrtydxb/ant-setup-selftest:${GITHUB_SHA::7}"
+          docker build -q -f Dockerfile.selftest -t "$tag" .
+          docker push "$tag" && echo push-ok
