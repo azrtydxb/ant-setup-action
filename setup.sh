@@ -53,6 +53,10 @@ json_field() { # json_field NAME  (reads stdin; flat string fields only)
 host=${ANT_HOST:-ant.azrty.com}
 base="https://$host"
 
+# Ant must answer before anything is pointed at it.
+fetch "$base/v2/" "Accept: application/json" >/dev/null 2>&1 ||
+	fallback "$base is not answering"
+
 [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ] ||
 	fallback "no GitHub OIDC token (add 'permissions: id-token: write'; Dependabot and fork PRs get none)"
 
@@ -81,12 +85,14 @@ if [ "${ANT_GO:-true}" = "true" ]; then
 	mv "$netrc.tmp" "$netrc" && chmod 600 "$netrc"
 	{
 		echo "NETRC=$netrc"
-		echo "GOPROXY=$base/feeds/${ANT_GO_FEED:-go}/go,direct"
+		# "|": any Ant error (5xx during a restart, 400 for a non-module path
+		# probe) falls through to the public proxy instead of failing the build.
+		echo "GOPROXY=$base/feeds/${ANT_GO_FEED:-go}/go|https://proxy.golang.org,direct"
 		# Checksums straight from sum.golang.org: Ant's sumdb proxy answers
 		# /supported but 404s some /lookup requests, which go treats as fatal.
 		[ -n "${GOSUMDB:-}" ] || echo "GOSUMDB=sum.golang.org https://sum.golang.org"
 	} >>"$GITHUB_ENV"
-	echo "Kuvryn Ant: GOPROXY=$base/feeds/${ANT_GO_FEED:-go}/go,direct"
+	echo "Kuvryn Ant: GOPROXY=$base/feeds/${ANT_GO_FEED:-go}/go|https://proxy.golang.org,direct"
 fi
 
 if [ "${ANT_NPM:-true}" = "true" ]; then
@@ -100,6 +106,10 @@ if [ "${ANT_NPM:-true}" = "true" ]; then
 		echo "NPM_CONFIG_REGISTRY=$reg"
 		echo "npm_config_registry=$reg"
 		echo "NODE_AUTH_TOKEN=$token"
+		# Ride out a short Ant restart instead of failing the install.
+		echo "npm_config_fetch_retries=6"
+		echo "npm_config_fetch_retry_mintimeout=5000"
+		echo "npm_config_fetch_retry_maxtimeout=60000"
 	} >>"$GITHUB_ENV"
 	echo "Kuvryn Ant: npm/pnpm registry=$reg"
 fi
@@ -121,7 +131,10 @@ index = "$idx"
 credential-provider = "cargo:token"
 TOML
 	fi
-	echo "CARGO_REGISTRIES_ANT_TOKEN=$token" >>"$GITHUB_ENV"
+	{
+		echo "CARGO_REGISTRIES_ANT_TOKEN=$token"
+		echo "CARGO_NET_RETRY=6"
+	} >>"$GITHUB_ENV"
 	echo "Kuvryn Ant: crates.io replaced with $idx"
 fi
 
@@ -131,6 +144,7 @@ if [ "${ANT_PIP:-true}" = "true" ]; then
 		echo "PIP_INDEX_URL=$idx"
 		echo "UV_INDEX_URL=$idx"
 		echo "UV_DEFAULT_INDEX=$idx"
+		echo "PIP_RETRIES=6"
 	} >>"$GITHUB_ENV"
 	echo "Kuvryn Ant: pip/uv index=https://$host/feeds/${ANT_PYPI_FEED:-pypi}/pypi/simple/"
 fi
