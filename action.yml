@@ -1,0 +1,58 @@
+name: Kuvryn Ant setup
+description: >
+  Exchange the job's GitHub OIDC token for a short-lived Kuvryn Ant token and
+  point Go, npm/pnpm, cargo and pip at the Ant feeds. No stored secrets. When
+  OIDC is unavailable (Dependabot, fork PRs, missing id-token permission) or the
+  exchange fails, it warns and leaves the public upstream defaults in place.
+inputs:
+  host:
+    description: Ant host name.
+    default: ant.azrty.com
+  go:
+    description: Configure GOPROXY + netrc for the go feed.
+    default: "true"
+  npm:
+    description: Configure the npm/pnpm registry.
+    default: "true"
+  cargo:
+    description: Replace crates.io with the cargo sparse feed.
+    default: "true"
+  pip:
+    description: Configure PIP_INDEX_URL / UV_INDEX_URL.
+    default: "true"
+  docker-login:
+    description: docker login to the host (needed to push to oci-hosted).
+    default: "false"
+  required:
+    description: Fail the step instead of falling back when no token can be obtained.
+    default: "false"
+  go-feed:
+    default: go
+  npm-feed:
+    default: npm
+  cargo-feed:
+    default: cargo
+  pypi-feed:
+    default: pypi
+outputs:
+  configured:
+    description: '"true" when an Ant token was obtained and the tools were configured.'
+    value: ${{ steps.setup.outputs.configured }}
+runs:
+  using: composite
+  steps:
+    - id: setup
+      shell: sh
+      env:
+        ANT_HOST: ${{ inputs.host }}
+        ANT_GO: ${{ inputs.go }}
+        ANT_NPM: ${{ inputs.npm }}
+        ANT_CARGO: ${{ inputs.cargo }}
+        ANT_PIP: ${{ inputs.pip }}
+        ANT_DOCKER: ${{ inputs.docker-login }}
+        ANT_REQUIRED: ${{ inputs.required }}
+        ANT_GO_FEED: ${{ inputs.go-feed }}
+        ANT_NPM_FEED: ${{ inputs.npm-feed }}
+        ANT_CARGO_FEED: ${{ inputs.cargo-feed }}
+        ANT_PYPI_FEED: ${{ inputs.pypi-feed }}
+      run: sh "${{ github.action_path }}/setup.sh"
