@@ -7,6 +7,11 @@ set -u
 . "$(dirname "$0")/lib.sh"
 
 fallback() {
+	# sccache still helps without Ant (local disk), and steps may name it in RUSTC_WRAPPER.
+	if [ "${ANT_BUILD_CACHE:-false}" = "true" ]; then
+		sh "$(dirname "$0")/install-sccache.sh" || true
+		echo "sccache=false" >>"$GITHUB_OUTPUT"
+	fi
 	if [ "${ANT_REQUIRED:-false}" = "true" ]; then
 		echo "::error::Kuvryn Ant: $1"
 		exit 1
