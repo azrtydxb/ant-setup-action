@@ -30,7 +30,8 @@ jobs:
       - name: Outputs are set
         run: |
           printf 'ref=%s\ntag=%s\nfrom=%s\nto=%s\n' "$REF" "$TAG" "$FROM" "$TO"
-          [ -n "$FROM" ] && [ -n "$TO" ] && [ -n "$REF" ]
+          # cache-from is empty on the first run: the cache does not exist yet
+          [ -n "$TO" ] && [ -n "$REF" ]
         env:
           REF: ${{ steps.ant.outputs.cache-ref }}
           TAG: ${{ steps.ant.outputs.cache-tag }}
@@ -85,6 +86,7 @@ jobs:
           docker buildx build --progress=plain "$@" -f Dockerfile.cachetest -t cachetest:read . 2>&1 | tee build.log
           n=$(grep -c ' CACHED' build.log || true)
           echo "CACHED steps: $n"
+          [ -n "$ANT_CACHE_FROM" ]
           [ "$n" -ge 2 ]
   sccache:
     runs-on: arc-azrtydxb
