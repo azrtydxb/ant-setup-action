@@ -1,0 +1,49 @@
+name: Kuvryn Ant cache cleanup
+description: >
+  Delete the buildx and sccache caches of a branch from the Kuvryn Ant cache
+  feeds. Meant for the `delete` event (a deleted branch) or a closed pull request.
+  Exchanges the job's GitHub OIDC token itself (needs `id-token: write`) and
+  never fails the workflow when Ant is unreachable.
+inputs:
+  branch:
+    description: >
+      Branch whose caches to delete. Default is the branch of a `delete` event,
+      the head branch of a pull_request event, or the ref name.
+    default: ""
+  repository:
+    description: org/repo whose caches to delete.
+    default: ${{ github.repository }}
+  host:
+    default: ant.azrty.com
+  cache-feed:
+    description: Slug of the OCI cache feed.
+    default: buildcache
+  sccache-feed:
+    description: Slug of the raw cache feed.
+    default: sccache
+  required:
+    description: Fail the step when the cleanup could not run.
+    default: "false"
+outputs:
+  tags-removed:
+    description: Cache tags removed from the OCI cache feed.
+    value: ${{ steps.cleanup.outputs.tags-removed }}
+  bytes-released:
+    description: Bytes released (metadata; blobs are swept shortly after).
+    value: ${{ steps.cleanup.outputs.bytes-released }}
+runs:
+  using: composite
+  steps:
+    - id: cleanup
+      shell: sh
+      env:
+        ANT_HOST: ${{ inputs.host }}
+        ANT_CLEAN_BRANCH: ${{ inputs.branch }}
+        ANT_CLEAN_REPO: ${{ inputs.repository }}
+        ANT_CACHE_FEED: ${{ inputs.cache-feed }}
+        ANT_SCCACHE_FEED: ${{ inputs.sccache-feed }}
+        ANT_REQUIRED: ${{ inputs.required }}
+        ANT_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        ANT_EVENT_REF: ${{ github.event.ref }}
+        ANT_EVENT_REF_TYPE: ${{ github.event.ref_type }}
+      run: sh "$GITHUB_ACTION_PATH/cleanup.sh"

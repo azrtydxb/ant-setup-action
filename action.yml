@@ -32,9 +32,39 @@ inputs:
   docker-login:
     description: docker login to the host (needed to push to oci-hosted).
     default: "false"
+  build-cache:
+    description: >
+      Opt in - export buildx registry cache refs (outputs cache-from and cache-to,
+      env ANT_CACHE_*), docker login, and (for Rust) install and configure sccache
+      against the Ant cache feeds.
+    default: "false"
+  arch-suffix:
+    description: Architecture part of the buildx cache tag. Default derived from the runner (amd64, arm64).
+    default: ""
+  cache-name:
+    description: Optional name inserted in the cache tag (<branch>-<name>-<arch>), for a repository that builds several images.
+    default: ""
+  cache-branch:
+    description: Override the branch part of the cache tag. Default is the PR head branch or ref name (the default branch for tag builds).
+    default: ""
+  cache-write:
+    description: Set "false" to read caches only (cache-to stays empty).
+    default: "true"
+  sccache:
+    description: With build-cache, "true", "false" or "auto" (install when cargo or Cargo.toml is present).
+    default: auto
+  sccache-version:
+    description: sccache release to install when it is missing (checksum verified).
+    default: "0.17.0"
   required:
     description: Fail the step instead of falling back when no token can be obtained.
     default: "false"
+  cache-feed:
+    description: Slug of the OCI cache feed.
+    default: buildcache
+  sccache-feed:
+    description: Slug of the raw cache feed.
+    default: sccache
   go-feed:
     default: go
   npm-feed:
@@ -53,6 +83,21 @@ outputs:
   configured:
     description: '"true" when an Ant token was obtained and the tools were configured.'
     value: ${{ steps.setup.outputs.configured }}
+  cache-from:
+    description: Multi-line value for docker/build-push-action cache-from (empty when build-cache is off or Ant is unavailable).
+    value: ${{ steps.setup.outputs.cache-from }}
+  cache-to:
+    description: Value for docker/build-push-action cache-to (empty when build-cache is off, Ant is unavailable or cache-write is false).
+    value: ${{ steps.setup.outputs.cache-to }}
+  cache-ref:
+    description: Registry repository of the buildx cache, e.g. ant.azrty.com/buildcache/org/repo.
+    value: ${{ steps.setup.outputs.cache-ref }}
+  cache-tag:
+    description: Tag of the cache (<branch>[-<name>]-<arch>).
+    value: ${{ steps.setup.outputs.cache-tag }}
+  sccache:
+    description: '"true" when sccache is installed and pointed at Ant.'
+    value: ${{ steps.setup.outputs.sccache }}
 runs:
   using: composite
   steps:
@@ -69,6 +114,16 @@ runs:
         ANT_COMPOSER: ${{ inputs.composer }}
         ANT_DOCKER: ${{ inputs.docker-login }}
         ANT_REQUIRED: ${{ inputs.required }}
+        ANT_BUILD_CACHE: ${{ inputs.build-cache }}
+        ANT_ARCH_SUFFIX: ${{ inputs.arch-suffix }}
+        ANT_CACHE_NAME: ${{ inputs.cache-name }}
+        ANT_CACHE_BRANCH_IN: ${{ inputs.cache-branch }}
+        ANT_CACHE_WRITE: ${{ inputs.cache-write }}
+        ANT_SCCACHE: ${{ inputs.sccache }}
+        ANT_SCCACHE_VERSION: ${{ inputs.sccache-version }}
+        ANT_CACHE_FEED: ${{ inputs.cache-feed }}
+        ANT_SCCACHE_FEED: ${{ inputs.sccache-feed }}
+        ANT_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         ANT_GO_FEED: ${{ inputs.go-feed }}
         ANT_NPM_FEED: ${{ inputs.npm-feed }}
         ANT_CARGO_FEED: ${{ inputs.cargo-feed }}

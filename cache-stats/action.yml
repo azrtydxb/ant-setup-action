@@ -1,0 +1,43 @@
+name: Kuvryn Ant sccache stats
+description: >
+  Print `sccache --show-stats` (also in the job summary) and expose the hit count.
+  Use as the last step of a job with `if: always()`. Does nothing when sccache is
+  not installed. Optionally fails when there were fewer hits than expected.
+inputs:
+  min-hits:
+    description: Fail when the compile cache hits are below this number (0 = never fail).
+    default: "0"
+outputs:
+  hits:
+    description: Compile cache hits.
+    value: ${{ steps.stats.outputs.hits }}
+  misses:
+    description: Compile cache misses.
+    value: ${{ steps.stats.outputs.misses }}
+runs:
+  using: composite
+  steps:
+    - id: stats
+      shell: sh
+      env:
+        ANT_MIN_HITS: ${{ inputs.min-hits }}
+      run: |
+        if ! command -v sccache >/dev/null 2>&1; then
+          echo "sccache is not installed; nothing to report"
+          exit 0
+        fi
+        out=$(sccache --show-stats 2>&1) || { echo "sccache --show-stats failed (no server running)"; exit 0; }
+        printf '%s\n' "$out"
+        hits=$(printf '%s\n' "$out" | sed -n 's/^Cache hits[[:space:]]\{1,\}\([0-9]\{1,\}\)$/\1/p' | head -n 1)
+        misses=$(printf '%s\n' "$out" | sed -n 's/^Cache misses[[:space:]]\{1,\}\([0-9]\{1,\}\)$/\1/p' | head -n 1)
+        hits=${hits:-0}
+        misses=${misses:-0}
+        echo "hits=$hits" >>"$GITHUB_OUTPUT"
+        echo "misses=$misses" >>"$GITHUB_OUTPUT"
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          { echo "### sccache"; echo; echo "hits: $hits, misses: $misses"; } >>"$GITHUB_STEP_SUMMARY"
+        fi
+        if [ "$hits" -lt "${ANT_MIN_HITS:-0}" ]; then
+          echo "::error::sccache hits $hits < expected ${ANT_MIN_HITS}"
+          exit 1
+        fi
