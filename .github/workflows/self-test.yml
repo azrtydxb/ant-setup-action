@@ -65,7 +65,9 @@ jobs:
       - name: Push a tiny image to oci-hosted (main gets publish)
         run: |
           printf 'FROM busybox:1.37\nLABEL org.opencontainers.image.source=https://github.com/azrtydxb/ant-setup-action\n' > Dockerfile.selftest
-          tag="$ANT_HOST/oci-hosted/azrtydxb/ant-setup-selftest:${GITHUB_SHA::7}"
+          # oci-hosted tags are immutable and a rebuilt image has a new digest, so tag per run
+          # (a workflow_dispatch or re-run on the same commit would otherwise conflict).
+          tag="$ANT_HOST/oci-hosted/azrtydxb/ant-setup-selftest:${GITHUB_SHA::7}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           docker build -q -f Dockerfile.selftest -t "$tag" .
           docker push "$tag" && echo push-ok
   slim-node:
@@ -113,7 +115,9 @@ jobs:
           dotnet nuget list source
           cd "$(mktemp -d)" && dotnet new classlib -o t >/dev/null && cd t && dotnet add package Newtonsoft.Json --version 13.0.3 && echo nuget-ok
   composer:
-    runs-on: arc-azrtydxb
+    # composer:2 is Alpine, and JavaScript actions (checkout) do not run in Alpine
+    # containers on arm64 runners.
+    runs-on: arc-azrtydxb-amd64
     container: composer:2
     steps:
       - uses: actions/checkout@v5
