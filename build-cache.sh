@@ -39,11 +39,25 @@ if [ "${build_cache_docker:-true}" = "true" ]; then
 	tag="$branch$name-$arch"
 	default_tag="$default_branch$name-$arch"
 
-	cache_from="type=registry,ref=$cache_repo:$tag"
-	if [ "$default_tag" != "$tag" ]; then
-		cache_from="$cache_from
-type=registry,ref=$cache_repo:$default_tag"
-	fi
+	# Only name caches that exist: a cache-from ref that is missing is fatal for
+	# build-push-action v6 and a warning for v7.
+	cache_exists() {
+		command -v curl >/dev/null 2>&1 || return 0
+		curl -fsS -o /dev/null --retry 2 -m 20 -H "Authorization: Bearer $token" \
+			-H "Accept: application/vnd.oci.image.manifest.v1+json" \
+			"$base/v2/${ANT_CACHE_FEED:-buildcache}/$repo/manifests/$1" >/dev/null 2>&1
+	}
+	cache_from=
+	for t in "$tag" "$default_tag"; do
+		cache_exists "$t" || continue
+		case "
+$cache_from
+" in *"
+type=registry,ref=$cache_repo:$t
+"*) continue ;; esac
+		cache_from="${cache_from:+$cache_from
+}type=registry,ref=$cache_repo:$t"
+	done
 	cache_to=
 	if [ "${ANT_CACHE_WRITE:-true}" = "true" ]; then
 		cache_to="type=registry,ref=$cache_repo:$tag,mode=max,image-manifest=true,ignore-error=true"
