@@ -130,3 +130,30 @@ jobs:
           [ "${TAGS:-0}" -ge 1 ]
         env:
           TAGS: ${{ steps.clean.outputs.tags-removed }}
+  sccache-hosted:
+    # A GitHub-hosted runner: non-root, /usr/local/bin not writable, no container.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with:
+          required: "true"
+          build-cache: "true"
+          go: "false"
+          npm: "false"
+          cargo: "false"
+          pip: "false"
+      - name: Compile a crate twice
+        run: |
+          [ "$RUSTC_WRAPPER" = "sccache" ]
+          command -v sccache
+          cd "$(mktemp -d)" && cargo new -q --lib t && cd t
+          cargo build -q
+          sccache --zero-stats >/dev/null
+          cargo clean -q
+          cargo build -q
+          sccache --show-stats
+      - name: sccache hits
+        uses: ./cache-stats
+        with:
+          min-hits: "1"
