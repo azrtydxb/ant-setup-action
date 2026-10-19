@@ -76,3 +76,57 @@ jobs:
       - uses: ./
         with: { required: "true" }
       - run: cd "$(mktemp -d)" && npm init -y >/dev/null && npm install left-pad@1.3.0 && echo slim-npm-ok
+  maven:
+    runs-on: arc-azrtydxb
+    container: maven:3.9-eclipse-temurin-21
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with:
+          {
+            required: "true",
+            maven: "true",
+            go: "false",
+            npm: "false",
+            cargo: "false",
+            pip: "false",
+          }
+      - run: |
+          grep -c 'feeds/maven/maven' ~/.m2/settings.xml
+          mvn -B -q dependency:get -Dartifact=junit:junit:4.13.2 && echo maven-ok
+  nuget:
+    runs-on: arc-azrtydxb
+    container: mcr.microsoft.com/dotnet/sdk:8.0
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with:
+          {
+            required: "true",
+            nuget: "true",
+            go: "false",
+            npm: "false",
+            cargo: "false",
+            pip: "false",
+          }
+      - run: |
+          dotnet nuget list source
+          cd "$(mktemp -d)" && dotnet new classlib -o t >/dev/null && cd t && dotnet add package Newtonsoft.Json --version 13.0.3 && echo nuget-ok
+  composer:
+    runs-on: arc-azrtydxb
+    container: composer:2
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with:
+          {
+            required: "true",
+            composer: "true",
+            go: "false",
+            npm: "false",
+            cargo: "false",
+            pip: "false",
+          }
+      - run: |
+          composer config --global repositories
+          cd "$(mktemp -d)" && composer init -n --name=t/t >/dev/null && composer require --no-interaction psr/log:3.0.0 && echo composer-ok

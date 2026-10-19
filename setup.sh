@@ -149,6 +149,76 @@ if [ "${ANT_PIP:-true}" = "true" ]; then
 	echo "Kuvryn Ant: pip/uv index=https://$host/feeds/${ANT_PYPI_FEED:-pypi}/pypi/simple/"
 fi
 
+# write_config PATH: write stdin to PATH (mode 600), keeping a one-time backup of
+# a pre-existing file that Ant did not write.
+write_config() {
+	mkdir -p "$(dirname "$1")"
+	if [ -f "$1" ] && ! grep -q 'kuvryn-ant-setup' "$1" 2>/dev/null && [ ! -f "$1.pre-ant" ]; then
+		cp "$1" "$1.pre-ant"
+	fi
+	cat >"$1" && chmod 600 "$1"
+}
+
+if [ "${ANT_MAVEN:-false}" = "true" ]; then
+	murl="$base/feeds/${ANT_MAVEN_FEED:-maven}/maven/"
+	write_config "$home/.m2/settings.xml" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- kuvryn-ant-setup -->
+<settings>
+  <mirrors>
+    <mirror>
+      <id>ant</id>
+      <name>Kuvryn Ant</name>
+      <url>$murl</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+  </mirrors>
+  <servers>
+    <server>
+      <id>ant</id>
+      <username>ci</username>
+      <password>$token</password>
+    </server>
+  </servers>
+</settings>
+XML
+	echo "Kuvryn Ant: maven central mirrored to $murl"
+fi
+
+if [ "${ANT_NUGET:-false}" = "true" ]; then
+	nurl="$base/feeds/${ANT_NUGET_FEED:-nuget}/nuget/v3/index.json"
+	write_config "$home/.nuget/NuGet/NuGet.Config" <<XML
+<?xml version="1.0" encoding="utf-8"?>
+<!-- kuvryn-ant-setup -->
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="ant" value="$nurl" />
+  </packageSources>
+  <packageSourceCredentials>
+    <ant>
+      <add key="Username" value="ci" />
+      <add key="ClearTextPassword" value="$token" />
+    </ant>
+  </packageSourceCredentials>
+</configuration>
+XML
+	echo "Kuvryn Ant: nuget source=$nurl"
+fi
+
+if [ "${ANT_COMPOSER:-false}" = "true" ]; then
+	composer_url="$base/feeds/${ANT_COMPOSER_FEED:-composer}/composer"
+	chome=${COMPOSER_HOME:-$home/.composer}
+	write_config "$chome/auth.json" <<JSON
+{"http-basic":{"$host":{"username":"ci","password":"$token"}}}
+JSON
+	write_config "$chome/config.json" <<JSON
+{"repositories":[{"type":"composer","url":"$composer_url"}]}
+JSON
+	echo "COMPOSER_HOME=$chome" >>"$GITHUB_ENV"
+	echo "Kuvryn Ant: composer repository=$composer_url"
+fi
+
 if [ "${ANT_DOCKER:-false}" = "true" ]; then
 	if command -v docker >/dev/null 2>&1; then
 		# Retried: a busy or restarting Ant answers 503 for a few seconds.
