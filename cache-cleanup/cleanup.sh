@@ -48,8 +48,11 @@ feed_id() { # feed_id SLUG
 }
 
 # clean FEED_SLUG PREFIX: loop while the API answers truncated.
-clean() {
+clean() { # clean FEED_SLUG PREFIX [DEFAULT_ID]
 	_id=$(feed_id "$1")
+	# A CI token may not be allowed to read the OCI cache feed through the management
+	# API even though it can delete from it, so fall back to the configured id.
+	[ -n "$_id" ] || _id=${3:-}
 	[ -n "$_id" ] || { echo "::warning::Kuvryn Ant cache cleanup: feed '$1' not found or not readable"; return 0; }
 	_enc=$(printf '%s' "$2" | sed 's/%/%25/g; s/:/%3A/g; s/ /%20/g')
 	_try=0
@@ -69,11 +72,11 @@ clean() {
 
 tags_total=0
 bytes_total=0
-clean "${ANT_CACHE_FEED:-buildcache}" "$lrepo:$tagpart-"
+clean "${ANT_CACHE_FEED:-buildcache}" "$lrepo:$tagpart-" "$([ "${ANT_CACHE_FEED:-buildcache}" = buildcache ] && printf '%s' "${ANT_CACHE_FEED_ID:-}")"
 # sccache keys are content hashes under the key prefix (org/repo by default, shared
 # between branches), so this removes files only for a repository that put the
 # branch into SCCACHE_WEBDAV_KEY_PREFIX (org/repo/<branch>).
-clean "${ANT_SCCACHE_FEED:-sccache}" "$repo/$tagpart/"
+clean "${ANT_SCCACHE_FEED:-sccache}" "$repo/$tagpart/" "$([ "${ANT_SCCACHE_FEED:-sccache}" = sccache ] && printf '%s' "${ANT_SCCACHE_FEED_ID:-}")"
 {
 	echo "tags-removed=$tags_total"
 	echo "bytes-released=$bytes_total"

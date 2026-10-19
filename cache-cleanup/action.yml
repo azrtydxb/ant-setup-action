@@ -21,6 +21,12 @@ inputs:
   sccache-feed:
     description: Slug of the raw cache feed.
     default: sccache
+  cache-feed-id:
+    description: Feed id used when the OCI cache feed cannot be looked up by slug with the CI token (default is the azrty OKE buildcache feed).
+    default: 92ceff87-f81d-41e5-a25d-1e13f5bc6b88
+  sccache-feed-id:
+    description: Same, for the sccache feed.
+    default: ab7bf244-c7ab-4ee9-b15d-0a53b7079db0
   required:
     description: Fail the step when the cleanup could not run.
     default: "false"
@@ -42,6 +48,8 @@ runs:
         ANT_CLEAN_REPO: ${{ inputs.repository }}
         ANT_CACHE_FEED: ${{ inputs.cache-feed }}
         ANT_SCCACHE_FEED: ${{ inputs.sccache-feed }}
+        ANT_CACHE_FEED_ID: ${{ inputs.cache-feed-id }}
+        ANT_SCCACHE_FEED_ID: ${{ inputs.sccache-feed-id }}
         ANT_REQUIRED: ${{ inputs.required }}
         ANT_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         ANT_EVENT_REF: ${{ github.event.ref }}
