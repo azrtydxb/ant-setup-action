@@ -23,10 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./
-        with: { required: "true", npm: "true" }
+        with: { required: "true" }
       - run: |
           npm config get registry
           cd "$(mktemp -d)" && npm init -y >/dev/null && npm install left-pad@1.3.0 && echo npm-ok
+          # packuments over 16 MiB stream since Ant 0.1.0-375611f
+          cd "$(mktemp -d)" && npm init -y >/dev/null && npm install --ignore-scripts playwright-core && echo npm-large-ok
           npm install -g pnpm@9 >/dev/null && pnpm add is-number@7.0.0 && echo pnpm-ok
   cargo:
     runs-on: arc-azrtydxb
@@ -72,5 +74,5 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./
-        with: { required: "true", npm: "true" }
+        with: { required: "true" }
       - run: cd "$(mktemp -d)" && npm init -y >/dev/null && npm install left-pad@1.3.0 && echo slim-npm-ok

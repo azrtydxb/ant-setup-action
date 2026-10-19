@@ -19,13 +19,10 @@ What it sets (all via `$GITHUB_ENV`, token masked):
 | Tool                               | Configuration                                                                                              |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Go                                 | `GOPROXY=https://ant.azrty.com/feeds/go/go\|https://proxy.golang.org,direct`, `~/.netrc`, `GOSUMDB` direct |
-| npm / pnpm (opt-in, `npm: "true"`) | `~/.npmrc` registry + `_authToken`, `NPM_CONFIG_REGISTRY`, `NODE_AUTH_TOKEN`                               |
+| npm / pnpm                        | `~/.npmrc` registry + `_authToken`, `NPM_CONFIG_REGISTRY`, `NODE_AUTH_TOKEN`                               |
 | cargo                              | `$CARGO_HOME/config.toml` replaces crates.io with the sparse feed, `CARGO_REGISTRIES_ANT_TOKEN`            |
 | pip / uv                           | `PIP_INDEX_URL`, `UV_INDEX_URL`, `UV_DEFAULT_INDEX`                                                        |
 | docker                             | `docker login ant.azrty.com` when `docker-login: "true"`                                                   |
-
-npm is opt-in because Ant currently refuses packuments over 16 MiB
-(`503 packument too large`, e.g. `playwright-core`).
 
 It also exports `ANT_TOKEN` and `ANT_HOST` for later steps. The token lives for the
 trust rule's TTL (1 hour).

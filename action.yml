@@ -12,11 +12,8 @@ inputs:
     description: Configure GOPROXY + netrc for the go feed.
     default: "true"
   npm:
-    description: >
-      Configure the npm/pnpm registry. Off by default: Ant answers 503 "packument
-      too large" for packuments over 16 MiB (playwright-core, ...); turn it on per
-      job for dependency trees without such packages.
-    default: "false"
+    description: Configure the npm/pnpm registry and auth token for the npm feed.
+    default: "true"
   cargo:
     description: Replace crates.io with the cargo sparse feed.
     default: "true"
