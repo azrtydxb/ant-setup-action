@@ -151,8 +151,16 @@ fi
 
 if [ "${ANT_DOCKER:-false}" = "true" ]; then
 	if command -v docker >/dev/null 2>&1; then
-		printf '%s' "$token" | docker login "$host" -u ci --password-stdin >/dev/null ||
-			fallback "docker login to $host failed"
+		# Retried: a busy or restarting Ant answers 503 for a few seconds.
+		logged=
+		for delay in 2 5 10 20 0; do
+			if printf '%s' "$token" | docker login "$host" -u ci --password-stdin >/dev/null; then
+				logged=1
+				break
+			fi
+			[ "$delay" -gt 0 ] && sleep "$delay"
+		done
+		[ -n "$logged" ] || fallback "docker login to $host failed"
 		echo "Kuvryn Ant: docker logged in to $host"
 	else
 		echo "::warning::Kuvryn Ant: docker-login requested but docker is not installed"
