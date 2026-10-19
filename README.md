@@ -22,6 +22,9 @@ What it sets (all via `$GITHUB_ENV`, token masked):
 | npm / pnpm                        | `~/.npmrc` registry + `_authToken`, `NPM_CONFIG_REGISTRY`, `NODE_AUTH_TOKEN`                               |
 | cargo                              | `$CARGO_HOME/config.toml` replaces crates.io with the sparse feed, `CARGO_REGISTRIES_ANT_TOKEN`            |
 | pip / uv                           | `PIP_INDEX_URL`, `UV_INDEX_URL`, `UV_DEFAULT_INDEX`                                                        |
+| Maven (opt-in `maven: "true"`) | `~/.m2/settings.xml`: mirror of `central` to `https://ant.azrty.com/feeds/maven/maven/`, server `ant` with the exchanged token as password |
+| NuGet (opt-in `nuget: "true"`) | user `NuGet.Config`: `https://ant.azrty.com/feeds/nuget/nuget/v3/index.json` as the only source, with credentials |
+| Composer (opt-in `composer: "true"`) | `$COMPOSER_HOME/auth.json` (http-basic) and `config.json` repository `https://ant.azrty.com/feeds/composer/composer` |
 | docker                             | `docker login ant.azrty.com` when `docker-login: "true"`                                                   |
 
 It also exports `ANT_TOKEN` and `ANT_HOST` for later steps. The token lives for the
@@ -30,6 +33,8 @@ trust rule's TTL (1 hour).
 When no OIDC token is available (Dependabot, fork PRs, missing `id-token: write`)
 or the exchange is refused, the step warns and leaves the public upstream defaults,
 unless `required: "true"`.
+
+Maven, NuGet and Composer are opt-in (default `false`); feed slugs are set with `maven-feed`, `nuget-feed` and `composer-feed`. An existing config file not written by this action is kept once as `*.pre-ant`.
 
 Run it in every job that needs it, after `actions/checkout` and inside the job's
 `container:` if it has one (files go to that container's `$HOME`). The image needs
