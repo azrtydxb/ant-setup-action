@@ -1,0 +1,19 @@
+name: debug
+on:
+  pull_request:
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  d:
+    runs-on: arc-azrtydxb
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./
+        with: { required: "true", go: "false", npm: "false", cargo: "false", pip: "false" }
+      - run: |
+          for q in "feeds?prefix=buildcache" "feeds?prefix=sccache" "feeds" "feeds/92ceff87-f81d-41e5-a25d-1e13f5bc6b88" "feeds/ab7bf244-c7ab-4ee9-b15d-0a53b7079db0"; do
+            echo "== $q"; curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $ANT_TOKEN" "https://ant.azrty.com/api/v1/$q" | cut -c1-600
+          done
+          echo "== delete"
+          curl -sS -w '\nHTTP %{http_code}\n' -X DELETE -H "Authorization: Bearer $ANT_TOKEN" "https://ant.azrty.com/api/v1/feeds/92ceff87-f81d-41e5-a25d-1e13f5bc6b88/cache?prefix=azrtydxb/ant-setup-action:selftest-nonexistent-" | cut -c1-600
