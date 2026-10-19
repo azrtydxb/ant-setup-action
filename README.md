@@ -38,7 +38,80 @@ Maven, NuGet and Composer are opt-in (default `false`); feed slugs are set with 
 
 Run it in every job that needs it, after `actions/checkout` and inside the job's
 `container:` if it has one (files go to that container's `$HOME`). The image needs
-`curl`, `wget`, `node` (18+) or `python3`.
+`curl`, `wget` or `node` (18+).
+
+## Build caches (opt-in)
+
+`build-cache: "true"` points the job at the Ant **cache feeds** (`buildcache` for buildx layers,
+`sccache` for Rust compilation). Same OIDC token, nothing stored.
+
+```yaml
+permissions: { id-token: write, contents: read }
+steps:
+  - uses: actions/checkout@v5
+  - uses: docker/setup-buildx-action@v4
+  - id: ant
+    uses: azrtydxb/ant-setup-action@v1
+    with: { build-cache: "true" }
+  - uses: docker/build-push-action@v7      # v6 fails on a cache-from ref that does not exist yet
+    with:
+      push: true
+      tags: ...
+      cache-from: ${{ steps.ant.outputs.cache-from }}
+      cache-to: ${{ steps.ant.outputs.cache-to }}
+  - uses: azrtydxb/ant-setup-action/cache-stats@v1   # Rust jobs: sccache hit rate
+    if: always()
+```
+
+| Input | Default | |
+| --- | --- | --- |
+| `build-cache` | `false` | Enable everything below. |
+| `arch-suffix` | derived (`amd64`, `arm64`) | Architecture part of the tag. |
+| `cache-name` | empty | Tag becomes `<branch>-<name>-<arch>`; use per image when a repo builds several. |
+| `cache-branch` | PR head branch / ref name / default branch for tags | Branch part of the tag (`/` and other invalid characters become `-`, max 80). |
+| `cache-write` | `true` | `false` leaves `cache-to` empty (read-only, e.g. for pull requests that must not write). |
+| `sccache` | `auto` | `true`/`false`/`auto` (install when `cargo`, `rustc` or `Cargo.toml` is present). |
+| `sccache-version` | `0.17.0` | Installed from the GitHub release, SHA-256 verified, only when `sccache` is not already on PATH. |
+| `cache-feed`, `sccache-feed` | `buildcache`, `sccache` | Feed slugs. |
+
+Outputs: `cache-from` (two lines: this branch, then the default branch), `cache-to`
+(`mode=max,image-manifest=true,ignore-error=true`), `cache-ref` (`ant.azrty.com/buildcache/<org>/<repo>`),
+`cache-tag`, `sccache`. The same values are exported as `ANT_CACHE_FROM`, `ANT_CACHE_TO`,
+`ANT_CACHE_REPO`, `ANT_CACHE_BRANCH`, `ANT_CACHE_DEFAULT_BRANCH` and `ANT_CACHE_ARCH`, so a job
+that builds several images can compose
+`type=registry,ref=${{ env.ANT_CACHE_REPO }}:${{ env.ANT_CACHE_BRANCH }}-api-${{ env.ANT_CACHE_ARCH }}`.
+When Ant is unreachable or no OIDC token exists (fork PRs, Dependabot) the outputs are empty and
+the build simply runs without a remote cache.
+
+sccache gets `RUSTC_WRAPPER=sccache`, `CARGO_INCREMENTAL=0`, `SCCACHE_WEBDAV_ENDPOINT`
+(`https://ant.azrty.com/feeds/sccache/raw`), `SCCACHE_WEBDAV_TOKEN` (the short-lived token, written
+to `$GITHUB_ENV` like `ANT_TOKEN`) and `SCCACHE_WEBDAV_KEY_PREFIX=<org>/<repo>`. sccache fails soft:
+judge it by the `cache-stats` step, not by the build passing.
+
+### cache-stats
+
+`azrtydxb/ant-setup-action/cache-stats` prints `sccache --show-stats`, the job summary, outputs
+`hits` and `misses`, and fails below `min-hits` if set. Run it with `if: always()`.
+
+### cache-cleanup
+
+`azrtydxb/ant-setup-action/cache-cleanup` deletes a branch's caches (buildx tags `<repo>:<branch>-*`; sccache
+files under `<repo>/<branch>/` if the repo isolates keys per branch), looping while the API answers
+`truncated`. Default branch is the one of a `delete` event.
+
+```yaml
+on: delete
+permissions: { id-token: write }
+jobs:
+  cleanup:
+    if: github.event.ref_type == 'branch'
+    runs-on: arc-azrtydxb
+    steps:
+      - uses: azrtydxb/ant-setup-action/cache-cleanup@v1
+```
+
+The cleanup of branch `feat` also removes the caches of `feat-*` branches (the prefix is `feat-`); that
+is only a cache.
 
 ## Ant side (OKE instance)
 
