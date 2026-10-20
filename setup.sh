@@ -21,7 +21,10 @@ fallback() {
 	exit 0
 }
 
-host=${ANT_HOST:-ant.azrty.com}
+host=$(ant_host)
+if [ -z "$host" ]; then
+	fallback "no Ant host configured: set the 'host' input (for example host: ant.example.com) or 'ant-url'"
+fi
 base="https://$host"
 
 ant_exchange "$host" || fallback "$ANT_EXCHANGE_ERROR"

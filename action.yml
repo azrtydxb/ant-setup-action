@@ -6,8 +6,14 @@ description: >
   exchange fails, it warns and leaves the public upstream defaults in place.
 inputs:
   host:
-    description: Ant host name.
-    default: ant.azrty.com
+    description: >
+      Ant host name, for example ant.example.com. Required, except in repositories of the
+      azrtydxb organization, which default to ant.azrty.com. Without a host the step warns and
+      leaves the public registries in place (or fails with required: true).
+    default: ""
+  ant-url:
+    description: Base URL of Ant (alternative to host; only the host part is used).
+    default: ""
   go:
     description: Configure GOPROXY + netrc for the go feed.
     default: "true"
@@ -90,7 +96,7 @@ outputs:
     description: Value for docker/build-push-action cache-to (empty when build-cache is off, Ant is unavailable or cache-write is false).
     value: ${{ steps.setup.outputs.cache-to }}
   cache-ref:
-    description: Registry repository of the buildx cache, e.g. ant.azrty.com/buildcache/org/repo.
+    description: Registry repository of the buildx cache, e.g. ant.example.com/buildcache/org/repo.
     value: ${{ steps.setup.outputs.cache-ref }}
   cache-tag:
     description: Tag of the cache (<branch>[-<name>]-<arch>).
@@ -105,6 +111,7 @@ runs:
       shell: sh
       env:
         ANT_HOST: ${{ inputs.host }}
+        ANT_URL: ${{ inputs.ant-url }}
         ANT_GO: ${{ inputs.go }}
         ANT_NPM: ${{ inputs.npm }}
         ANT_CARGO: ${{ inputs.cargo }}
