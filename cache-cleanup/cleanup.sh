@@ -13,7 +13,8 @@ skip() { # skip MESSAGE: warn and succeed unless required
 	exit 0
 }
 
-host=${ANT_HOST:-ant.azrty.com}
+host=$(ant_host)
+[ -n "$host" ] || skip "no Ant host configured: set the 'host' input (for example host: ant.example.com) or 'ant-url'"
 base="https://$host"
 
 if [ "${ANT_EVENT_REF_TYPE:-}" = "tag" ] && [ -z "${ANT_CLEAN_BRANCH:-}" ]; then
@@ -50,10 +51,10 @@ feed_id() { # feed_id SLUG
 # clean FEED_SLUG PREFIX: loop while the API answers truncated.
 clean() { # clean FEED_SLUG PREFIX [DEFAULT_ID]
 	_id=$(feed_id "$1")
-	# A CI token may not be allowed to read the OCI cache feed through the management
-	# API even though it can delete from it, so fall back to the configured id.
+	# The feed is found by slug. An id passed explicitly (cache-feed-id, sccache-feed-id) is only
+	# a fallback for a server whose CI tokens cannot list feeds; there is no built-in id.
 	[ -n "$_id" ] || _id=${3:-}
-	[ -n "$_id" ] || { echo "::warning::Kuvryn Ant cache cleanup: feed '$1' not found or not readable"; return 0; }
+	[ -n "$_id" ] || { echo "::warning::Kuvryn Ant cache cleanup: feed '$1' not found or not readable with this token"; return 0; }
 	_enc=$(printf '%s' "$2" | sed 's/%/%25/g; s/:/%3A/g; s/ /%20/g')
 	_try=0
 	while [ "$_try" -lt 20 ]; do

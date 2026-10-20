@@ -14,7 +14,13 @@ inputs:
     description: org/repo whose caches to delete.
     default: ${{ github.repository }}
   host:
-    default: ant.azrty.com
+    description: >
+      Ant host name, for example ant.example.com. Required, except in repositories of the azrtydxb
+      organization, which default to ant.azrty.com.
+    default: ""
+  ant-url:
+    description: Base URL of Ant (alternative to host; only the host part is used).
+    default: ""
   cache-feed:
     description: Slug of the OCI cache feed.
     default: buildcache
@@ -22,11 +28,11 @@ inputs:
     description: Slug of the raw cache feed.
     default: sccache
   cache-feed-id:
-    description: Feed id used when the OCI cache feed cannot be looked up by slug with the CI token (default is the azrty OKE buildcache feed).
-    default: 92ceff87-f81d-41e5-a25d-1e13f5bc6b88
+    description: Optional feed id used only when the OCI cache feed cannot be looked up by slug with the CI token. Normally empty.
+    default: ""
   sccache-feed-id:
     description: Same, for the sccache feed.
-    default: ab7bf244-c7ab-4ee9-b15d-0a53b7079db0
+    default: ""
   required:
     description: Fail the step when the cleanup could not run.
     default: "false"
@@ -44,6 +50,7 @@ runs:
       shell: sh
       env:
         ANT_HOST: ${{ inputs.host }}
+        ANT_URL: ${{ inputs.ant-url }}
         ANT_CLEAN_BRANCH: ${{ inputs.branch }}
         ANT_CLEAN_REPO: ${{ inputs.repository }}
         ANT_CACHE_FEED: ${{ inputs.cache-feed }}

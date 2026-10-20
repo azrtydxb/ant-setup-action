@@ -47,22 +47,50 @@ cache_tag_part() {
 	printf '%s' "$1" | tr -c 'A-Za-z0-9_.-' '-' | sed 's/^[-.]*//' | cut -c1-"${2:-80}"
 }
 
+# ant_host: print the Ant host to use. Order: the `host` input ($ANT_HOST), the host of
+# the `ant-url` input ($ANT_URL), then, for repositories of the azrtydxb organization
+# only, the default deployment (existing callers there pass neither). Anyone else must
+# say which Ant to talk to; nothing is guessed, so no OIDC token is ever sent to a host
+# the caller did not name.
+ant_host() {
+	if [ -n "${ANT_HOST:-}" ]; then
+		printf '%s' "$ANT_HOST"
+	elif [ -n "${ANT_URL:-}" ]; then
+		_u=${ANT_URL#*://}
+		printf '%s' "${_u%%/*}"
+	elif [ "${GITHUB_REPOSITORY_OWNER:-}" = azrtydxb ]; then
+		printf '%s' ant.azrty.com
+	fi
+}
+
 # ant_exchange HOST: GitHub OIDC -> Ant access token in $ANT_EXCHANGED_TOKEN.
-# On failure sets $ANT_EXCHANGE_ERROR and returns 1.
+# On failure sets $ANT_EXCHANGE_ERROR (a sentence that says what to fix) and returns 1.
+#
+# The exchange itself is the reachability check. Ant answers an anonymous GET /v2/ with
+# 401 unless a default OCI feed allows anonymous reads, so probing /v2/ would report a
+# healthy Ant as down and silently send the job to the public registries.
 ant_exchange() {
 	_base="https://$1"
 	ANT_EXCHANGED_TOKEN=
 	ANT_EXCHANGE_ERROR=
-	fetch "$_base/v2/" "Accept: application/json" >/dev/null 2>&1 ||
-		{ ANT_EXCHANGE_ERROR="$_base is not answering"; return 1; }
 	[ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ] ||
 		{ ANT_EXCHANGE_ERROR="no GitHub OIDC token (add 'permissions: id-token: write'; Dependabot and fork PRs get none)"; return 1; }
-	_jwt=$(fetch "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=$_base" "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" | json_field value) ||
+	_out=$(fetch "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=$_base" "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN") ||
 		{ ANT_EXCHANGE_ERROR="requesting the GitHub OIDC token failed"; return 1; }
+	_jwt=$(printf '%s' "$_out" | json_field value)
 	[ -n "$_jwt" ] || { ANT_EXCHANGE_ERROR="empty GitHub OIDC token"; return 1; }
-	_tok=$(fetch "$_base/api/v1/auth/github-oidc/exchange" "Accept: application/json" "{\"token\":\"$_jwt\"}" | json_field access_token) ||
-		{ ANT_EXCHANGE_ERROR="OIDC exchange at $_base was refused (check the trust rules)"; return 1; }
-	[ -n "$_tok" ] || { ANT_EXCHANGE_ERROR="OIDC exchange returned no token"; return 1; }
+	_out=$(fetch "$_base/api/v1/auth/github-oidc/exchange" "Accept: application/json" "{\"token\":\"$_jwt\"}")
+	_rc=$?
+	if [ "$_rc" -ne 0 ]; then
+		case $_rc in
+		22 | 8) ANT_EXCHANGE_ERROR="$_base answered but refused the OIDC exchange (check that a trust rule matches this repository and ref, and that the audience is $_base)" ;;
+		127) ANT_EXCHANGE_ERROR="neither curl, wget nor node is available to contact $_base" ;;
+		*) ANT_EXCHANGE_ERROR="$_base is not reachable (the OIDC exchange request failed, exit code $_rc)" ;;
+		esac
+		return 1
+	fi
+	_tok=$(printf '%s' "$_out" | json_field access_token)
+	[ -n "$_tok" ] || { ANT_EXCHANGE_ERROR="the OIDC exchange at $_base returned no token"; return 1; }
 	ANT_EXCHANGED_TOKEN=$_tok
 	echo "::add-mask::$_tok"
 }
