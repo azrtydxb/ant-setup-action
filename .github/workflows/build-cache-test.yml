@@ -15,7 +15,7 @@ jobs:
   docker-write:
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       # The runner pod's own BuildKit sidecar, the builder consumers use. Runner pods are
       # ephemeral, so its local store starts empty in every job.
       - id: builder
@@ -63,7 +63,7 @@ jobs:
     needs: docker-write
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - id: builder
         uses: azrtydxb/.github/actions/setup-builder@d021f2ca9fa3d6682085a7d069b7c8b1dc7b9b80 # main
       - id: ant
@@ -97,10 +97,15 @@ jobs:
         env:
           BUILDER: ${{ steps.builder.outputs.name }}
   sccache:
+    # On the runner, not in a rust:1-bookworm job container: in ARC kubernetes mode a
+    # container job runs in a separate workflow pod whose checkout the runner cannot see,
+    # so the local action (`uses: ./`) is not found. The sccache install as root is what
+    # the consumers' container jobs exercise; this job covers the runner path.
     runs-on: arc-azrtydxb
-    container: rust:1-bookworm
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with: { toolchain: stable }
       - id: ant
         uses: ./
         with:
@@ -126,7 +131,7 @@ jobs:
     needs: docker-read
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - id: clean
         uses: ./cache-cleanup
         with:
@@ -142,7 +147,7 @@ jobs:
     # A GitHub-hosted runner: non-root, /usr/local/bin not writable, no container.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: ./
         with:
           required: "true"
