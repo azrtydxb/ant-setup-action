@@ -162,10 +162,12 @@ jobs:
       DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        # The runner user cannot write the default /usr/share/dotnet.
-        env: { DOTNET_INSTALL_DIR: "${{ runner.temp }}/dotnet" }
-        with: { dotnet-version: "8.0.x" }
+      # Ubuntu's own .NET 8 package; dotnet-install's aka.ms links intermittently land on a
+      # Microsoft storage origin that answers 409.
+      - name: Install .NET 8 SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends dotnet-sdk-8.0
       - uses: ./
         with:
           {
