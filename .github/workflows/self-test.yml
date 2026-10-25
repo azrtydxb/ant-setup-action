@@ -123,8 +123,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with: { distribution: temurin, java-version: "21" }
-      # Maven 3.9 as in the old maven:3.9 container; the distro's 3.8 cannot resolve the
-      # dependency: plugin prefix through the Ant mirror.
+      # Maven 3.9, as in the old maven:3.9 container.
       - name: Install Maven 3.9
         env:
           MAVEN_VERSION: 3.9.11
@@ -135,6 +134,14 @@ jobs:
           echo "$MAVEN_SHA512  $tgz" | sha512sum -c -
           tar -xzf "$tgz" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/apache-maven-$MAVEN_VERSION/bin" >> "$GITHUB_PATH"
+      # Ant is served with the cluster CA, which the runner trusts in /etc/ssl/certs but a
+      # downloaded JDK does not.
+      - name: Trust the cluster CA in the JDK
+        run: |
+          ca=/etc/ssl/certs/cluster-ca.crt
+          if [ -f "$ca" ]; then
+            keytool -importcert -noprompt -cacerts -storepass changeit -alias cluster-ca -file "$ca"
+          fi
       - uses: ./
         with:
           {
