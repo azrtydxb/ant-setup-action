@@ -16,7 +16,10 @@ jobs:
     runs-on: arc-azrtydxb
     steps:
       - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v4
+      # The runner pod's own BuildKit sidecar, the builder consumers use. Runner pods are
+      # ephemeral, so its local store starts empty in every job.
+      - id: builder
+        uses: azrtydxb/.github/actions/setup-builder@d021f2ca9fa3d6682085a7d069b7c8b1dc7b9b80 # main
       - id: ant
         uses: ./
         with:
@@ -47,19 +50,22 @@ jobs:
       - name: Build with the cache (cold, exports it)
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
+          builder: ${{ steps.builder.outputs.name }}
           context: .
           file: Dockerfile.cachetest
-          load: true
+          # No image output: the cache export to Ant is what this job tests.
           tags: cachetest:write
           cache-from: ${{ steps.ant.outputs.cache-from }}
           cache-to: ${{ steps.ant.outputs.cache-to }}
   docker-read:
-    # A different job means a fresh builder: anything CACHED comes from Ant.
+    # A different job means a different runner pod, so a fresh BuildKit sidecar with an
+    # empty store: anything CACHED comes from Ant.
     needs: docker-write
     runs-on: arc-azrtydxb
     steps:
       - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v4
+      - id: builder
+        uses: azrtydxb/.github/actions/setup-builder@d021f2ca9fa3d6682085a7d069b7c8b1dc7b9b80 # main
       - id: ant
         uses: ./
         with:
@@ -83,11 +89,13 @@ jobs:
           done <<EOF
           $ANT_CACHE_FROM
           EOF
-          docker buildx build --progress=plain "$@" -f Dockerfile.cachetest -t cachetest:read . 2>&1 | tee build.log
+          docker buildx build --builder "$BUILDER" --progress=plain "$@" -f Dockerfile.cachetest -t cachetest:read . 2>&1 | tee build.log
           n=$(grep -c ' CACHED' build.log || true)
           echo "CACHED steps: $n"
           [ -n "$ANT_CACHE_FROM" ]
           [ "$n" -ge 2 ]
+        env:
+          BUILDER: ${{ steps.builder.outputs.name }}
   sccache:
     runs-on: arc-azrtydxb
     container: rust:1-bookworm

@@ -57,6 +57,10 @@ jobs:
     runs-on: arc-azrtydxb
     steps:
       - uses: actions/checkout@v5
+      # The runner pod's BuildKit sidecar; it pushes with the docker CLI's credentials,
+      # which docker-login below writes.
+      - id: builder
+        uses: azrtydxb/.github/actions/setup-builder@d021f2ca9fa3d6682085a7d069b7c8b1dc7b9b80 # main
       - uses: ./
         with:
           {
@@ -67,14 +71,24 @@ jobs:
             cargo: "false",
             pip: "false",
           }
-      - name: Push a tiny image to oci-hosted (main gets publish)
+      - name: Tag and Dockerfile
+        id: img
         run: |
           printf 'FROM busybox:1.37\nLABEL org.opencontainers.image.source=https://github.com/azrtydxb/ant-setup-action\n' > Dockerfile.selftest
           # oci-hosted tags are immutable and a rebuilt image has a new digest, so tag per run
           # (a workflow_dispatch or re-run on the same commit would otherwise conflict).
-          tag="$ANT_HOST/oci-hosted/azrtydxb/ant-setup-selftest:${GITHUB_SHA::7}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          docker build -q -f Dockerfile.selftest -t "$tag" .
-          docker push "$tag" && echo push-ok
+          echo "tag=$ANT_HOST/oci-hosted/azrtydxb/ant-setup-selftest:${GITHUB_SHA::7}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+      - name: Push a tiny image to oci-hosted (main gets publish)
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          builder: ${{ steps.builder.outputs.name }}
+          context: .
+          file: Dockerfile.selftest
+          platforms: linux/arm64
+          push: true
+          # A plain image manifest, as the classic docker build pushed (no attestations).
+          provenance: false
+          tags: ${{ steps.img.outputs.tag }}
   slim-node:
     runs-on: arc-azrtydxb
     container: node:22-bookworm-slim
