@@ -180,6 +180,7 @@ JSON
 fi
 
 build_cache=${ANT_BUILD_CACHE:-false}
+docker_hosts=
 
 if [ "${ANT_DOCKER:-false}" = "true" ] || [ "$build_cache" = "true" ]; then
 	if command -v docker >/dev/null 2>&1; then
@@ -200,6 +201,34 @@ if [ "${ANT_DOCKER:-false}" = "true" ] || [ "$build_cache" = "true" ]; then
 			build_cache_docker=false
 		else
 			echo "Kuvryn Ant: docker logged in to $host"
+			docker_hosts=$host
+			# Runner-default host in an azrtydxb repository: deployable images still go to the
+			# org Ant, so log docker in there too. A separate OIDC token (audience
+			# https://ant.azrty.com); it is used for this login only and never exported.
+			extra=$(ant_extra_login_host "$host")
+			if [ -n "$extra" ]; then
+				extra_ok=
+				if ant_exchange "$extra"; then
+					for delay in 2 5 10 20 0; do
+						if printf '%s' "$ANT_EXCHANGED_TOKEN" | docker login "$extra" -u ci --password-stdin >/dev/null; then
+							extra_ok=1
+							break
+						fi
+						[ "$delay" -gt 0 ] && sleep "$delay"
+					done
+					[ -n "$extra_ok" ] || ANT_EXCHANGE_ERROR="docker login to $extra failed"
+				fi
+				ANT_EXCHANGED_TOKEN=
+				if [ -n "$extra_ok" ]; then
+					echo "Kuvryn Ant: docker logged in to $extra"
+					docker_hosts="$docker_hosts,$extra"
+				elif [ "${ANT_REQUIRED:-false}" = "true" ]; then
+					echo "::error::Kuvryn Ant: $ANT_EXCHANGE_ERROR (needed to push images to $extra)"
+					exit 1
+				else
+					echo "::warning::Kuvryn Ant: $ANT_EXCHANGE_ERROR; pushes to $extra will fail"
+				fi
+			fi
 		fi
 	elif [ "${ANT_DOCKER:-false}" = "true" ]; then
 		echo "::warning::Kuvryn Ant: docker-login requested but docker is not installed"
@@ -210,4 +239,5 @@ if [ "$build_cache" = "true" ]; then
 	. "$(dirname "$0")/build-cache.sh"
 fi
 
+echo "docker-hosts=$docker_hosts" >>"$GITHUB_OUTPUT"
 echo "configured=true" >>"$GITHUB_OUTPUT"

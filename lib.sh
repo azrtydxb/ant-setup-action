@@ -48,19 +48,48 @@ cache_tag_part() {
 }
 
 # ant_host: print the Ant host to use. Order: the `host` input ($ANT_HOST), the host of
-# the `ant-url` input ($ANT_URL), then, for repositories of the azrtydxb organization
-# only, the default deployment (existing callers there pass neither). Anyone else must
-# say which Ant to talk to; nothing is guessed, so no OIDC token is ever sent to a host
-# the caller did not name.
+# the `ant-url` input ($ANT_URL), the runner's default ($ANT_DEFAULT_HOST, an env var the
+# operator sets on the runner container so it reaches every step), then, for repositories of
+# the azrtydxb organization only, the default deployment (existing callers there pass
+# neither). Anyone else must say which Ant to talk to; nothing is guessed, so no OIDC token
+# is ever sent to a host that was not explicitly configured. An env var set by the runner
+# operator counts as explicit; a workflow author cannot be surprised by it any more than by
+# the runner's own proxy settings. A malformed $ANT_DEFAULT_HOST (scheme, path, spaces) is an
+# operator error: warn and print nothing, so the caller falls back to the public registries
+# instead of sending the token to the organization default the operator meant to replace.
 ant_host() {
 	if [ -n "${ANT_HOST:-}" ]; then
 		printf '%s' "$ANT_HOST"
 	elif [ -n "${ANT_URL:-}" ]; then
 		_u=${ANT_URL#*://}
 		printf '%s' "${_u%%/*}"
+	elif [ -n "${ANT_DEFAULT_HOST:-}" ]; then
+		case $ANT_DEFAULT_HOST in
+		*[!A-Za-z0-9.:-]*)
+			echo "::warning::Kuvryn Ant: ANT_DEFAULT_HOST must be a bare host name (no scheme or path), got '$ANT_DEFAULT_HOST'; ignoring it" >&2
+			return 0 ;;
+		esac
+		printf '%s' "$ANT_DEFAULT_HOST"
 	elif [ "${GITHUB_REPOSITORY_OWNER:-}" = azrtydxb ]; then
 		printf '%s' ant.azrty.com
 	fi
+}
+
+# ant_extra_login_host: print the org default host (ant.azrty.com) when docker must be logged in
+# to it in addition to the resolved host, else nothing. That is the case only when all hold: the
+# host came from $ANT_DEFAULT_HOST (neither the `host` nor the `ant-url` input was set), the
+# repository belongs to azrtydxb (so ant.azrty.com is the host that would have applied, hence
+# already an explicitly configured OIDC target), docker-login is on ($ANT_DOCKER=true), and the
+# resolved host differs from it. Those repositories push deployable images to the production
+# Ant's oci-hosted feed, which a login to a runner-local Ant alone would not cover. Pure: reads
+# only the variables above and the resolved host given as $1.
+ant_extra_login_host() { # ant_extra_login_host RESOLVED_HOST
+	[ "${ANT_DOCKER:-false}" = "true" ] || return 0
+	[ -z "${ANT_HOST:-}" ] && [ -z "${ANT_URL:-}" ] || return 0
+	[ -n "${ANT_DEFAULT_HOST:-}" ] && [ "$1" = "$ANT_DEFAULT_HOST" ] || return 0
+	[ "${GITHUB_REPOSITORY_OWNER:-}" = azrtydxb ] || return 0
+	[ "$1" != ant.azrty.com ] || return 0
+	printf '%s' ant.azrty.com
 }
 
 # ant_exchange HOST: GitHub OIDC -> Ant access token in $ANT_EXCHANGED_TOKEN.

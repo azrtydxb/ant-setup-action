@@ -20,10 +20,26 @@ steps:
 
 Set `host` (a host name such as `ant.example.com`) or `ant-url` (a base URL; only its host
 is used). The action requests the OIDC token with audience `https://<host>` and sends it to
-that host only, so it never guesses a server. Repositories of the `azrtydxb` organization may
-omit both: they default to the organization's own deployment, `ant.example.com`. Anywhere else
-a missing host is a configuration error: the step warns (or fails with `required: "true"`)
+that host only, so it never guesses a server. Self-hosted runners can supply a default: set the
+environment variable `ANT_DEFAULT_HOST` (a bare host name, no scheme or path) on the runner
+container, and every step that gives neither `host` nor `ant-url` uses it. The order is `host`,
+`ant-url`, `ANT_DEFAULT_HOST`, then, for repositories of the `azrtydxb` organization, the
+organization's own deployment, `ant.example.com`. An env var set by the runner operator counts
+as explicitly configured; an invalid value is ignored with a warning (no fallback to the
+organization default). Anywhere else a missing host is a configuration error: the step warns (or fails with `required: "true"`)
 and leaves the public registries in place.
+
+### Image pushes to the org Ant
+
+`ANT_DEFAULT_HOST` moves feeds, build cache and sccache to the runner's Ant, but deployable
+images are still pushed to the organization's Ant (`ant.azrty.com/oci-hosted/...`). So when
+the host came from `ANT_DEFAULT_HOST` (not from `host` or `ant-url`), the repository owner is
+`azrtydxb` and `docker-login: "true"`, the action also does a second OIDC exchange (audience
+`https://ant.azrty.com`) and logs docker in there. Only that docker login uses the second
+token; it is never exported. If it fails the step warns (and fails with `required: "true"`,
+like the other failures). Other owners never get this login: no token goes to a host they did
+not configure. The output `docker-hosts` lists the hosts docker is logged in to, comma
+separated (for example `ant.kw.example.lab,ant.azrty.com`).
 
 The action does not probe the registry API anonymously. The OIDC exchange itself is the
 reachability check, so an Ant whose `/v2/` answers `401` to anonymous clients (the normal

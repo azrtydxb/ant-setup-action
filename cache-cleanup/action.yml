@@ -15,8 +15,9 @@ inputs:
     default: ${{ github.repository }}
   host:
     description: >
-      Ant host name, for example ant.example.com. Required, except in repositories of the azrtydxb
-      organization, which default to ant.azrty.com.
+      Ant host name, for example ant.example.com. Required, except where the runner sets the
+      ANT_DEFAULT_HOST environment variable and in repositories of the azrtydxb organization,
+      which default to ant.azrty.com.
     default: ""
   ant-url:
     description: Base URL of Ant (alternative to host; only the host part is used).
