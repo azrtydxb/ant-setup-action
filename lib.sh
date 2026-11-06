@@ -48,16 +48,28 @@ cache_tag_part() {
 }
 
 # ant_host: print the Ant host to use. Order: the `host` input ($ANT_HOST), the host of
-# the `ant-url` input ($ANT_URL), then, for repositories of the azrtydxb organization
-# only, the default deployment (existing callers there pass neither). Anyone else must
-# say which Ant to talk to; nothing is guessed, so no OIDC token is ever sent to a host
-# the caller did not name.
+# the `ant-url` input ($ANT_URL), the runner's default ($ANT_DEFAULT_HOST, an env var the
+# operator sets on the runner container so it reaches every step), then, for repositories of
+# the azrtydxb organization only, the default deployment (existing callers there pass
+# neither). Anyone else must say which Ant to talk to; nothing is guessed, so no OIDC token
+# is ever sent to a host that was not explicitly configured. An env var set by the runner
+# operator counts as explicit; a workflow author cannot be surprised by it any more than by
+# the runner's own proxy settings. A malformed $ANT_DEFAULT_HOST (scheme, path, spaces) is an
+# operator error: warn and print nothing, so the caller falls back to the public registries
+# instead of sending the token to the organization default the operator meant to replace.
 ant_host() {
 	if [ -n "${ANT_HOST:-}" ]; then
 		printf '%s' "$ANT_HOST"
 	elif [ -n "${ANT_URL:-}" ]; then
 		_u=${ANT_URL#*://}
 		printf '%s' "${_u%%/*}"
+	elif [ -n "${ANT_DEFAULT_HOST:-}" ]; then
+		case $ANT_DEFAULT_HOST in
+		*[!A-Za-z0-9.:-]*)
+			echo "::warning::Kuvryn Ant: ANT_DEFAULT_HOST must be a bare host name (no scheme or path), got '$ANT_DEFAULT_HOST'; ignoring it" >&2
+			return 0 ;;
+		esac
+		printf '%s' "$ANT_DEFAULT_HOST"
 	elif [ "${GITHUB_REPOSITORY_OWNER:-}" = azrtydxb ]; then
 		printf '%s' ant.azrty.com
 	fi

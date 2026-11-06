@@ -54,7 +54,8 @@ rc=$?
 [ "$rc" -ne 0 ] && printf '%s' "$ANT_EXCHANGE_ERROR" | grep -q "id-token: write"
 check "a missing OIDC token explains the permission: $ANT_EXCHANGE_ERROR" $?
 
-# Host resolution: explicit input, ant-url, and the organization default.
+# Host resolution: explicit input, ant-url, the runner default, and the organization default.
+ANT_DEFAULT_HOST=
 ANT_HOST=custom.example.com ANT_URL=
 [ "$(ant_host)" = custom.example.com ]
 check "host input wins" $?
@@ -67,5 +68,21 @@ check "the azrtydxb organization keeps its default" $?
 ANT_HOST= ANT_URL= GITHUB_REPOSITORY_OWNER=someone-else
 [ -z "$(ant_host)" ]
 check "other owners get no implicit host" $?
+
+ANT_HOST= ANT_URL= ANT_DEFAULT_HOST=ant.kw.example.lab GITHUB_REPOSITORY_OWNER=azrtydxb
+[ "$(ant_host)" = ant.kw.example.lab ]
+check "the runner default beats the organization default" $?
+ANT_HOST= ANT_URL= ANT_DEFAULT_HOST=ant.kw.example.lab GITHUB_REPOSITORY_OWNER=someone-else
+[ "$(ant_host)" = ant.kw.example.lab ]
+check "the runner default works for any owner" $?
+ANT_HOST=custom.example.com ANT_URL= ANT_DEFAULT_HOST=ant.kw.example.lab
+[ "$(ant_host)" = custom.example.com ]
+check "host input beats the runner default" $?
+ANT_HOST= ANT_URL=https://ant.other.example/ ANT_DEFAULT_HOST=ant.kw.example.lab
+[ "$(ant_host)" = ant.other.example ]
+check "ant-url beats the runner default" $?
+ANT_HOST= ANT_URL= ANT_DEFAULT_HOST=https://ant.kw.example.lab/ GITHUB_REPOSITORY_OWNER=azrtydxb
+[ -z "$(ant_host 2>/dev/null)" ] && ant_host 2>&1 | grep -q "bare host name"
+check "a runner default with a scheme or path is refused, not replaced by the org default" $?
 
 exit $fail
