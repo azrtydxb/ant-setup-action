@@ -10,7 +10,7 @@ jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@v7
       - run: sh test/lib_test.sh
   # The ARC runners run in kubernetes mode: a job with `container:` runs in a separate
   # workflow pod whose checkout the runner cannot see, so a local action (`uses: ./`)
@@ -19,8 +19,8 @@ jobs:
   go:
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with: { go-version: "1.27", cache: false }
       - uses: ./
         with: { required: "true" }
@@ -30,8 +30,8 @@ jobs:
   npm:
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: "22" }
       - uses: ./
         with: { required: "true" }
@@ -44,8 +44,8 @@ jobs:
   cargo:
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
         with: { toolchain: stable }
       - uses: ./
         with: { required: "true" }
@@ -54,8 +54,8 @@ jobs:
   pip:
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: "3.13" }
       - uses: ./
         with: { required: "true" }
@@ -64,11 +64,11 @@ jobs:
   docker:
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@v7
       # The runner pod's BuildKit sidecar; it pushes with the docker CLI's credentials,
       # which docker-login below writes.
       - id: builder
-        uses: azrtydxb/.github/actions/setup-builder@d021f2ca9fa3d6682085a7d069b7c8b1dc7b9b80 # main
+        uses: azrtydxb/.github/actions/setup-builder@main
       - uses: ./
         with:
           {
@@ -87,7 +87,7 @@ jobs:
           # (a workflow_dispatch or re-run on the same commit would otherwise conflict).
           echo "tag=$ANT_HOST/oci-hosted/azrtydxb/ant-setup-selftest:${GITHUB_SHA::7}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
       - name: Push a tiny image to oci-hosted (main gets publish)
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@v7
         with:
           builder: ${{ steps.builder.outputs.name }}
           context: .
@@ -102,8 +102,8 @@ jobs:
     # The runner has curl: hide it (and wget) for the rest of this ephemeral job.
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: "22" }
       - name: Hide curl and wget
         run: |
@@ -120,8 +120,8 @@ jobs:
   maven:
     runs-on: arc-azrtydxb
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with: { distribution: temurin, java-version: "21" }
       # Maven 3.9, as in the old maven:3.9 container.
       - name: Install Maven 3.9
@@ -161,7 +161,7 @@ jobs:
       # The runner image may lack ICU.
       DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: "1"
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@v7
       # Ubuntu's own .NET 8 package; dotnet-install's aka.ms links intermittently land on a
       # Microsoft storage origin that answers 409.
       - name: Install .NET 8 SDK
@@ -185,7 +185,7 @@ jobs:
     # On the amd64 set, so one self-test covers that architecture.
     runs-on: arc-azrtydxb-amd64
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@v7
       - name: Install PHP and Composer
         run: |
           sudo apt-get update
