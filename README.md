@@ -29,6 +29,18 @@ as explicitly configured; an invalid value is ignored with a warning (no fallbac
 organization default). Anywhere else a missing host is a configuration error: the step warns (or fails with `required: "true"`)
 and leaves the public registries in place.
 
+### Image pushes to the org Ant
+
+`ANT_DEFAULT_HOST` moves feeds, build cache and sccache to the runner's Ant, but deployable
+images are still pushed to the organization's Ant (`ant.azrty.com/oci-hosted/...`). So when
+the host came from `ANT_DEFAULT_HOST` (not from `host` or `ant-url`), the repository owner is
+`azrtydxb` and `docker-login: "true"`, the action also does a second OIDC exchange (audience
+`https://ant.azrty.com`) and logs docker in there. Only that docker login uses the second
+token; it is never exported. If it fails the step warns (and fails with `required: "true"`,
+like the other failures). Other owners never get this login: no token goes to a host they did
+not configure. The output `docker-hosts` lists the hosts docker is logged in to, comma
+separated (for example `ant.kw.example.lab,ant.azrty.com`).
+
 The action does not probe the registry API anonymously. The OIDC exchange itself is the
 reachability check, so an Ant whose `/v2/` answers `401` to anonymous clients (the normal
 case) works. When it falls back, the warning says why: no `id-token: write` permission, the
